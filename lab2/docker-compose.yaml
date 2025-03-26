@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  user_auth_service:
+    build:
+      context: user_auth_service
+      dockerfile: Dockerfile
+    container_name: user_auth_service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - Chat'n_Message-net
+    volumes:
+      - ./user_auth_service:/user_service_dir
+
+  message_service:
+    build:
+      context: messanger_service
+      dockerfile: Dockerfile
+    container_name: messanger_service
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    networks:
+      - Chat'n_Message-net
+    volumes:
+      - ./messanger_service:/messanger_service_dir
+
+networks:
+  Chat'n_Message-net:
+    driver: bridge
