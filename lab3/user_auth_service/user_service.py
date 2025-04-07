@@ -5,23 +5,21 @@ import uvicorn
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import FastAPI, HTTPException, Depends, status
 
-from models import User, Password
+from models import User, Password, DB_User
+from db_connect import get_db_connection
 from jwt_utils import get_current_client_by_jwt, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 app = FastAPI()
 
-user_db = {
-    "admin":  User(login='admin', password=Password.hash_password('secret'))
-}
-
 
 @app.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(),
+                                 user_db=Depends(get_db_connection)):
     password_check = False
-    
-    if form_data.username in user_db:
-        password = user_db[form_data.username].password
+    pg_user_data = user_db.query(DB_User).filter(DB_User.login == form_data.username).first()
+    if pg_user_data:
+        password = pg_user_data.password
         if Password.verify_password(form_data.password, password):
             password_check = True
 
@@ -37,44 +35,56 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
 
 
-@app.post("/users", response_model=User)
-async def create_user(user: User, current_user: str = Depends(get_current_client_by_jwt)):
-    for u in user_db.keys():
-        if u == user.login:
-            raise HTTPException(status_code=404, detail="User already exist")
+@app.post("/users", response_model=str)
+async def create_user(user: User, current_user: str = Depends(get_current_client_by_jwt),
+                      user_db=Depends(get_db_connection)):
+    pg_user_data = user_db.query(DB_User).filter(DB_User.login == user.login).first()
+    if pg_user_data:
+        raise HTTPException(status_code=404, detail="User already exist")
     user.password = Password.hash_password(user.password)
-    user_db[user.login] = user
-    return user
+    new_user = DB_User(**user.model_dump())
+    user_db.add(new_user)
+    user_db.commit()
+    return f'User {user.login} created!'
 
 
-@app.get("/users", response_model=List[str])
-async def get_users_logins_list(current_user: str = Depends(get_current_client_by_jwt)):
-    return user_db.keys()
+@app.get("/users", response_model=List[User])
+async def get_users_logins_list(current_user: str = Depends(get_current_client_by_jwt),
+                                user_db=Depends(get_db_connection)):
+    return list(user_db.query(DB_User).all())
 
 
 @app.get("/users/{user_login}", response_model=User)      
-async def get_user_by_login(user_login: str, current_user: str = Depends(get_current_client_by_jwt)):
-    for _, login in enumerate(user_db):
-        if user_db[login].login == user_login:
-            return user_db[login]
+async def get_user_by_login(user_login: str, current_user: str = Depends(get_current_client_by_jwt),
+                            user_db=Depends(get_db_connection)):
+    pg_user_data = user_db.query(DB_User).filter(DB_User.login == user_login).first()
+    if pg_user_data:
+        return pg_user_data
     raise HTTPException(status_code=404, detail="User not found")
 
 
 @app.put("/users/{user_login}", response_model=User)
-async def update_user(user_login: str, updated_user: User, current_user: str = Depends(get_current_client_by_jwt)):
-    for _, login in enumerate(user_db):
-        if user_db[login].login == user_login:
-            user_db[login] = updated_user
-            return updated_user
+async def update_user(user_login: str, updated_user: User, current_user: str = Depends(get_current_client_by_jwt),
+                      user_db=Depends(get_db_connection)):
+    pg_user_data = user_db.query(DB_User).filter(DB_User.login == user_login).first()
+    if pg_user_data:
+        setattr(pg_user_data, 'name', updated_user.name)
+        setattr(pg_user_data, 'password', updated_user.password)
+        user_db.commit()
+        return updated_user
     raise HTTPException(status_code=404, detail="User not found")
 
 
-@app.delete("/users/{user_login}", response_model=User)
-async def delete_user(user_login: str, current_user: str = Depends(get_current_client_by_jwt)):
-    for _, login in enumerate(user_db):
-        if user_db[login].login == user_login:
-            deleted_user = user_db.pop(login)
-            return deleted_user
+@app.delete("/users/{user_login}", response_model=str)
+async def delete_user(user_login: str, current_user: str = Depends(get_current_client_by_jwt),
+                      user_db=Depends(get_db_connection)):
+    if user_login == 'admin':
+        raise HTTPException(status_code=404, detail="admin can't be deleted")    
+    pg_user_data = user_db.query(DB_User).filter(DB_User.login == user_login).first()
+    if pg_user_data:
+        user_db.delete(pg_user_data)
+        user_db.commit()
+        return f'User {user_login} deleted!'
     raise HTTPException(status_code=404, detail="User not found")
 
 

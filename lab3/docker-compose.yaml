@@ -27,6 +27,41 @@ services:
     volumes:
       - ./messanger_service:/messanger_service_dir
 
+  init_db:
+    build:
+      context: user_sqldb_init
+      dockerfile: Dockerfile
+    container_name: user_sqldb_init
+    restart: on-failure
+    networks:
+      - Chat'n_Message-net
+    volumes:
+      - ./user_sqldb_init:/user_db
+    depends_on:
+      - postgres
+    entrypoint: ["python3", "db_init.py"]
+
+  postgres:
+    container_name: postgres
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: messanger
+      PG_DATA: /data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - Chat'n_Message-net
+    volumes:
+      - db_volume:/data/postgres
+
+
 networks:
   Chat'n_Message-net:
     driver: bridge
+
+volumes:
+  db_volume:
+    driver: local

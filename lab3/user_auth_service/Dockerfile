@@ -7,6 +7,7 @@ RUN mkdir /user_service_dir
 COPY . /user_service_dir
 WORKDIR /user_service_dir
 
+RUN pip install --upgrade pip
 RUN pip install -r requ_user_service.txt
 
 CMD [ "python", "user_service.py" ]

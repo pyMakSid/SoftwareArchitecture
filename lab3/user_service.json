@@ -5,15 +5,15 @@
         "version": "0.1.0"
     },
     "paths": {
-        "/send": {
+        "/token": {
             "post": {
-                "summary": "Send message",
-                "operationId": "send_message_send_post",
+                "summary": "Login For Access Token",
+                "operationId": "login_for_access_token_token_post",
                 "requestBody": {
                     "content": {
-                        "application/json": {
+                        "application/x-www-form-urlencoded": {
                             "schema": {
-                                "$ref": "#/components/schemas/Message"
+                                "$ref": "#/components/schemas/Body_login_for_access_token_token_post"
                             }
                         }
                     },
@@ -21,7 +21,12 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Successful Response"
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
                     },
                     "422": {
                         "description": "Validation Error",
@@ -36,18 +41,92 @@
                 }
             }
         },
-        "/history": {
+        "/users": {
             "get": {
-                "summary": "Get all messages by chat",
-                "operationId": "get_all_messages_by_chat_history_get",
+                "summary": "Get Users Logins List",
+                "operationId": "get_users_logins_list_users_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "items": {
+                                        "$ref": "#/components/schemas/User"
+                                    },
+                                    "type": "array",
+                                    "title": "Response Get Users Logins List Users Get"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            },
+            "post": {
+                "summary": "Create User",
+                "operationId": "create_user_users_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/User"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "string",
+                                    "title": "Response Create User Users Post"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ]
+            }
+        },
+        "/users/{user_login}": {
+            "get": {
+                "summary": "Get User By Login",
+                "operationId": "get_user_by_login_users__user_login__get",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
                 "parameters": [
                     {
-                        "name": "chat_name",
-                        "in": "query",
+                        "name": "user_login",
+                        "in": "path",
                         "required": true,
                         "schema": {
                             "type": "string",
-                            "title": "Chat Name"
+                            "title": "User Login"
                         }
                     }
                 ],
@@ -57,11 +136,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Message"
-                                    },
-                                    "title": "Response Get All Messages By Chat History Get"
+                                    "$ref": "#/components/schemas/User"
                                 }
                             }
                         }
@@ -77,20 +152,23 @@
                         }
                     }
                 }
-            }
-        },
-        "/create": {
-            "post": {
-                "summary": "Create new chat",
-                "operationId": "create_chat_create_post",
+            },
+            "delete": {
+                "summary": "Delete User",
+                "operationId": "delete_user_users__user_login__delete",
+                "security": [
+                    {
+                        "OAuth2PasswordBearer": []
+                    }
+                ],
                 "parameters": [
                     {
-                        "name": "chat",
-                        "in": "query",
+                        "name": "user_login",
+                        "in": "path",
                         "required": true,
                         "schema": {
                             "type": "string",
-                            "title": "Chat"
+                            "title": "User Login"
                         }
                     }
                 ],
@@ -101,7 +179,7 @@
                             "application/json": {
                                 "schema": {
                                     "type": "string",
-                                    "title": "Response Create Chat Create Post"
+                                    "title": "Response Delete User Users  User Login  Delete"
                                 }
                             }
                         }
@@ -118,32 +196,67 @@
                     }
                 }
             }
-        },
-        "/chat_list": {
-            "get": {
-                "summary": "Get all chats",
-                "operationId": "get_all_chats_chat_list_get",
-                "responses": {
-                    "200": {
-                        "description": "Successful Response",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "items": {
-                                        "type": "string"
-                                    },
-                                    "type": "array",
-                                    "title": "Response Get All Chats Chat List Get"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     },
     "components": {
         "schemas": {
+            "Body_login_for_access_token_token_post": {
+                "properties": {
+                    "grant_type": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^password$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Grant Type"
+                    },
+                    "username": {
+                        "type": "string",
+                        "title": "Username"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    },
+                    "scope": {
+                        "type": "string",
+                        "title": "Scope",
+                        "default": ""
+                    },
+                    "client_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Client Id"
+                    },
+                    "client_secret": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Client Secret"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "username",
+                    "password"
+                ],
+                "title": "Body_login_for_access_token_token_post"
+            },
             "HTTPValidationError": {
                 "properties": {
                     "detail": {
@@ -157,9 +270,17 @@
                 "type": "object",
                 "title": "HTTPValidationError"
             },
-            "Message": {
+            "User": {
                 "properties": {
-                    "content": {
+                    "login": {
+                        "type": "string",
+                        "title": "Login"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    },
+                    "name": {
                         "anyOf": [
                             {
                                 "type": "string"
@@ -168,30 +289,15 @@
                                 "type": "null"
                             }
                         ],
-                        "title": "Content",
-                        "default": ""
-                    },
-                    "sender_login": {
-                        "type": "string",
-                        "title": "Sender Login"
-                    },
-                    "chat_name": {
-                        "type": "string",
-                        "title": "Chat Name"
-                    },
-                    "sending_date": {
-                        "type": "string",
-                        "format": "date-time",
-                        "title": "Sending Date"
+                        "title": "Name"
                     }
                 },
                 "type": "object",
                 "required": [
-                    "sender_login",
-                    "chat_name",
-                    "sending_date"
+                    "login",
+                    "password"
                 ],
-                "title": "Message"
+                "title": "User"
             },
             "ValidationError": {
                 "properties": {
@@ -225,6 +331,17 @@
                     "type"
                 ],
                 "title": "ValidationError"
+            }
+        },
+        "securitySchemes": {
+            "OAuth2PasswordBearer": {
+                "type": "oauth2",
+                "flows": {
+                    "password": {
+                        "scopes": {},
+                        "tokenUrl": "token"
+                    }
+                }
             }
         }
     }
