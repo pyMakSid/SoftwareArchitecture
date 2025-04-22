@@ -53,7 +53,7 @@ workspace {
             storage = container "Message Storage" {
 
                 description "Message receiving and saving"
-                technology "PostgreSQL"
+                technology "MongoDB"
             }
 
             user_login_system -> messenger_frontend "Get access to messnger"

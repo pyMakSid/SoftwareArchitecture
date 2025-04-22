@@ -27,7 +27,7 @@ services:
     volumes:
       - ./messanger_service:/messanger_service_dir
 
-  init_db:
+  init_sql_db:
     build:
       context: user_sqldb_init
       dockerfile: Dockerfile
@@ -57,6 +57,17 @@ services:
     volumes:
       - db_volume:/data/postgres
 
+  mongo:
+    container_name: mongo
+    image: mongo:4.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    networks:
+      - Chat'n_Message-net
+    volumes:
+      - mongo_volume:/data/mongo
+
 
 networks:
   Chat'n_Message-net:
@@ -64,4 +75,6 @@ networks:
 
 volumes:
   db_volume:
+    driver: local
+  mongo_volume:
     driver: local
