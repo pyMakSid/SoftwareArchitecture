@@ -1,0 +1,4 @@
+passlib==1.7.4
+pymongo==4.12.0
+psycopg2-binary==2.9.10
+SQLAlchemy==2.0.36
