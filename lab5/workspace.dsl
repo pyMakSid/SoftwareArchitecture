@@ -15,7 +15,7 @@ workspace {
             auth_service = container "Auth service" {
 
                 description "Users authentication"
-                technology "HTTP, FastApi, PostgreSQL"
+                technology "HTTP, FastApi, PostgreSQL, Redis"
 
             }
 

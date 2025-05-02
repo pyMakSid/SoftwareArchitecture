@@ -68,6 +68,14 @@ services:
     volumes:
       - mongo_volume:/data/mongo
 
+  redis:
+    container_name: redis
+    image: redis:7.4
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+    networks:
+      - Chat'n_Message-net
 
 networks:
   Chat'n_Message-net:

@@ -5,12 +5,15 @@ import uvicorn
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import FastAPI, HTTPException, Depends, status
 
-from models import User, Password, DB_User
 from db_connect import get_db_connection
+from redis_connect import RedisConnection
+from models import User, Password, DB_User
 from jwt_utils import get_current_client_by_jwt, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 app = FastAPI()
+redis_client = RedisConnection()
+CACHE_EXPIRATION = 3600
 
 
 @app.post("/token")
@@ -45,21 +48,50 @@ async def create_user(user: User, current_user: str = Depends(get_current_client
     new_user = DB_User(**user.model_dump())
     user_db.add(new_user)
     user_db.commit()
+
+    # Write-through cache: Add user to cache
+    redis_client.set_user_to_cache(user.login, user.model_dump())
+    redis_client.invalidate_users_list_cache()
+
     return f'User {user.login} created!'
 
 
 @app.get("/users", response_model=List[User])
 async def get_users_logins_list(current_user: str = Depends(get_current_client_by_jwt),
                                 user_db=Depends(get_db_connection)):
-    return list(user_db.query(DB_User).all())
+    # Read-through cache: Check if users list is in cache
+    cached_users = redis_client.get_users_list_from_cache()
+    if cached_users:
+        return cached_users
+
+    # If not in cache, get from DB and update cache
+    users = list(user_db.query(DB_User).all())
+    users_data = [user.login for user in users]
+
+    redis_client.set_users_list_to_cache(users_data)
+
+    return users
 
 
-@app.get("/users/{user_login}", response_model=User)      
+@app.get("/users/{user_login}", response_model=User)
 async def get_user_by_login(user_login: str, current_user: str = Depends(get_current_client_by_jwt),
                             user_db=Depends(get_db_connection)):
+    # Read-through cache: Check if user is in cache
+    cached_user = redis_client.get_user_from_cache(user_login)
+    if cached_user:
+        return cached_user
+
+    # If not in cache, get from DB and update cache
     pg_user_data = user_db.query(DB_User).filter(DB_User.login == user_login).first()
     if pg_user_data:
+        user_data = {
+            "login": pg_user_data.login,
+            "name": pg_user_data.name,
+            "password": pg_user_data.password
+        }
+        redis_client.set_user_to_cache(user_login, user_data)
         return pg_user_data
+
     raise HTTPException(status_code=404, detail="User not found")
 
 
@@ -71,7 +103,14 @@ async def update_user(user_login: str, updated_user: User, current_user: str = D
         setattr(pg_user_data, 'name', updated_user.name)
         setattr(pg_user_data, 'password', updated_user.password)
         user_db.commit()
+
+        # Write-through cache: Update user in cache
+        redis_client.set_user_to_cache(user_login, updated_user.model_dump())
+        # Invalidate users list cache
+        redis_client.invalidate_users_list_cache()
+
         return updated_user
+
     raise HTTPException(status_code=404, detail="User not found")
 
 
@@ -79,12 +118,18 @@ async def update_user(user_login: str, updated_user: User, current_user: str = D
 async def delete_user(user_login: str, current_user: str = Depends(get_current_client_by_jwt),
                       user_db=Depends(get_db_connection)):
     if user_login == 'admin':
-        raise HTTPException(status_code=404, detail="admin can't be deleted")    
+        raise HTTPException(status_code=404, detail="admin can't be deleted")
+
     pg_user_data = user_db.query(DB_User).filter(DB_User.login == user_login).first()
     if pg_user_data:
         user_db.delete(pg_user_data)
         user_db.commit()
+
+        # Write-through cache: Delete user from cache
+        redis_client.delete_user_from_cache(user_login)
+        redis_client.invalidate_users_list_cache()
         return f'User {user_login} deleted!'
+
     raise HTTPException(status_code=404, detail="User not found")
 
 

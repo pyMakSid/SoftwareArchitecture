@@ -30,6 +30,6 @@ class Password:
 
     def hash_password(password: str):
         return Password.pwd_context.hash(password)
-    
+
     def verify_password(inp_password: str, hashed_password: str):
         return Password.pwd_context.verify(inp_password, hashed_password)
